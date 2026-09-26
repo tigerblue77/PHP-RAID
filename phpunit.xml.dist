@@ -5,6 +5,15 @@
     processIsolation="false"
     stopOnFailure="false"
     syntaxCheck="false">
+    <php>
+        <!-- The human-readable sizes come from CakePHP's Number, whose plural
+             forms and number formatting follow the intl default locale, and
+             that is otherwise whatever LANG says: 0 renders "0 Byte" under
+             fr_FR and "0 Bytes" under en_US or C. Pinned, so the suite means
+             the same thing on every machine, CI included, and in the English
+             the library's strings and README are written in. -->
+        <ini name="intl.default_locale" value="en_US"/>
+    </php>
     <testsuites>
         <testsuite name="Library">
             <directory>./tests</directory>
