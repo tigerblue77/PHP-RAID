@@ -1,0 +1,108 @@
+# What a pull request has to pass: the dependencies composer.json declares
+# install, the suite phpunit.xml.dist defines passes, src/ meets the standard
+# phpcs.xml.dist defines, and .github/rulesets/master.json names only checks
+# that exist. It runs what the repository already defines, through its own
+# composer scripts, and nothing more.
+#
+# It is the CI dependabot-auto-merge.yml waits for. Until it existed the only
+# CI here was .travis.yml, which Travis stopped building for open source
+# repositories, so no check reported on a pull request at all and auto-merge
+# would have had nothing to wait for.
+#
+# PHP 7.0, set up by shivammathur/setup-php rather than taken from the runner,
+# for three reasons that all point the same way:
+#
+# - composer.json asks for "php": ">= 7.0", and phpunit/phpunit ^6.0 asks for
+#   php ^7.0, so 7.0 to 7.4 is the whole range the tree installs on. 7.0 is
+#   the floor the library promises, and it headed the old .travis.yml matrix.
+# - the runner's own PHP is 8.3, where phpunit 6 does not install at all.
+# - on 7.0 and 7.1 setup-php installs Composer 2.2 LTS. From 7.2 it installs
+#   the current Composer, which since 2.9 refuses to resolve a package with a
+#   published security advisory, and every phpunit 6 release has one
+#   (CVE-2026-24765, fixed only from 8.5.52). Moving this to 7.4 would turn
+#   "composer install" red before a test runs; moving off phpunit 6 is what
+#   lifts that, and it is a change of its own.
+#
+# Each check is its own job so that each reports its own verdict under its
+# own name; those names are what .github/rulesets/master.json requires.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    name: PHPUnit
+    runs-on: ubuntu-latest
+    # Backstop. The suite takes well under a second; the install is the slow
+    # part, and nothing here should ever sit for github's default six hours.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.0"
+          # cakephp/i18n requires ext-intl, so "composer install" refuses to
+          # resolve without it.
+          extensions: intl
+          coverage: none
+
+      # There is no composer.lock (.gitignore keeps it out, as a library's
+      # should), so this resolves the newest versions composer.json allows,
+      # which is what a consumer of the library gets as well.
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # composer.json's own "test" script. --no-coverage skips the <logging>
+      # block of phpunit.xml.dist: nothing here publishes the report, and
+      # without a coverage driver PHPUnit 6 prints "Error: No code coverage
+      # driver is available" above a run that then passes.
+      - name: Run the test suite
+        run: composer test -- --no-coverage
+
+  phpcs:
+    name: PHP_CodeSniffer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.0"
+          extensions: intl
+          coverage: none
+
+      # phpcs.xml.dist takes its rules from vendor/cakephp/cakephp-codesniffer,
+      # so the standard is installed the same way as for the suite.
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # composer.json's own "cs" script.
+      - name: Check the coding standard
+        run: composer cs
+
+  required-checks:
+    name: Required checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Standard library only, on the runner's own python3: nothing to install.
+      - name: Check .github/rulesets/master.json against the workflows
+        run: python3 .github/scripts/check_required_checks.py
