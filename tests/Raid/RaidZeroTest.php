@@ -47,7 +47,7 @@ class RaidZeroTest extends TestCase
         ];
         $raidZero = new RaidZero($drives);
         $this->assertSame(0, $raidZero->getParitySize());
-        $this->assertSame("0 Byte", $raidZero->getParitySize(['human' => true]));
+        $this->assertSame("0 Bytes", $raidZero->getParitySize(['human' => true]));
     }
 
     public function testGetParitySizeWithHotSpares()
@@ -62,6 +62,6 @@ class RaidZeroTest extends TestCase
         ];
         $raidZero = new RaidZero($drives);
         $this->assertSame(0, $raidZero->getParitySize());
-        $this->assertSame("0 Byte", $raidZero->getParitySize(['human' => true]));
+        $this->assertSame("0 Bytes", $raidZero->getParitySize(['human' => true]));
     }
 }
